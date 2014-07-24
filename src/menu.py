@@ -12,41 +12,46 @@ import os
 import json
 import time
 import webbrowser
-from api import NetEase
-from player import Player
-from ui import Ui
+
+from .api import NetEase
+from .player import Player
+from .ui import Ui
 
 home = os.path.expanduser("~")
 if os.path.isdir(home + '/netease-musicbox') is False:
     os.mkdir(home+'/netease-musicbox')
 
 locale.setlocale(locale.LC_ALL, "")
-code = locale.getpreferredencoding()   
+code = locale.getpreferredencoding()
 
 # carousel x in [left, right]
 carousel = lambda left, right, x: left if (x>right) else (right if x<left else x)
 
 shortcut = [
-    ['j', 'Down      ', '下移'],
-    ['k', 'Up        ', '上移'],
-    ['h', 'Back      ', '后退'],
-    ['l', 'Forward   ', '前进'],
-    ['u', 'Prev page ', '上一页'],
-    ['d', 'Next page ', '下一页'],
-    ['f', 'Search    ', '快速搜索'],
-    ['[', 'Prev song ', '上一曲'],
-    [']', 'Next song ', '下一曲'],
-    [' ', 'Play/Pause', '播放/暂停'],
-    ['m', 'Menu      ', '主菜单'],
-    ['p', 'Present   ', '当前播放列表'],
-    ['a', 'Add       ', '添加曲目到打碟'],
-    ['z', 'DJ list   ', '打碟列表'],
-    ['s', 'Star      ', '添加到收藏'],
-    ['c', 'Collection', '收藏列表'],
-    ['r', 'Remove    ', '删除当前条目'],
-    ['q', 'Quit      ', '退出']
+    ['j', 'Down       ', '下移'],
+    ['k', 'Up         ', '上移'],
+    ['h', 'Back       ', '后退'],
+    ['l', 'Forward    ', '前进'],
+    ['u', 'Prev page  ', '上一页'],
+    ['d', 'Next page  ', '下一页'],
+    ['f', 'Search     ', '快速搜索'],
+    ['[', 'Prev song  ', '上一曲'],
+    [']', 'Next song  ', '下一曲'],
+    [' ', 'Play/Pause ', '播放/暂停'],
+    ['m', 'Menu       ', '主菜单'],
+    ['p', 'Present    ', '当前播放列表'],
+    ['a', 'Add        ', '添加曲目到打碟'],
+    ['A', 'Add page   ', '添加本页到打碟'],
+    ['z', 'DJ list    ', '打碟列表'],
+    ['s', 'Star       ', '添加到收藏'],
+    ['c', 'Collection ', '收藏列表'],
+    ['r', 'Remove     ', '删除当前条目'],
+    ['R', 'Remove page', '删除本页所有条目'],
+    ['q', 'Quit       ', '退出']
 ]
 
+CONTROL_B = 2
+CONTROL_F = 6
 
 class Menu:
     def __init__(self):
@@ -75,7 +80,7 @@ class Menu:
             self.account = data['account']
             sfile.close()
         except:
-            self.collection = []        
+            self.collection = []
             self.account = {}
 
     def start(self):
@@ -106,22 +111,18 @@ class Menu:
                 self.index = carousel(offset, min( len(datalist), offset + step) - 1, idx+1 )
 
             # 向上翻页
-            elif key == ord('u'):
+            elif key in (ord('u'), CONTROL_B):
                 if offset == 0:
                     continue
                 self.offset -= step
-
-                # e.g. 23 - 10 = 13 --> 10
-                self.index = (index-step)//step*step
+                self.index = self.offset
 
             # 向下翻页
-            elif key == ord('d'):
+            elif key in (ord('d'), CONTROL_F):
                 if offset + step >= len( datalist ):
                     continue
                 self.offset += step
-
-                # e.g. 23 + 10 = 33 --> 30
-                self.index = (index+step)//step*step
+                self.index = self.offset
 
             # 前进
             elif key == ord('l') or key == 10:
@@ -130,7 +131,7 @@ class Menu:
                 self.ui.build_loading()
                 self.dispatch_enter(idx)
                 self.index = 0
-                self.offset = 0    
+                self.offset = 0
 
             # 回退
             elif key == ord('h'):
@@ -150,19 +151,23 @@ class Menu:
 
             # 播放下一曲
             elif key == ord(']'):
+                if len(self.presentsongs) == 0:
+                    continue
                 self.player.next()
                 time.sleep(0.1)
 
             # 播放上一曲
             elif key == ord('['):
+                if len(self.presentsongs) == 0:
+                    continue 
                 self.player.prev()
                 time.sleep(0.1)
 
             # 播放、暂停
             elif key == ord(' '):
-                if datatype == 'songs':
+                if datatype == 'songs' and len(datalist) != 0:
                     self.presentsongs = ['songs', title, datalist, offset, index]
-                elif datatype == 'djchannels':
+                elif datatype == 'djchannels' and len(datalist) != 0:
                     self.presentsongs = ['djchannels', title, datalist, offset, index]
                 self.player.play(datatype, datalist, idx)
                 time.sleep(0.1)
@@ -184,6 +189,11 @@ class Menu:
                     self.djstack.append( datalist[idx] )
                 elif datatype == 'artists':
                     pass
+
+            # 添加当前页面到打碟
+            elif key == ord('A'):
+                if datatype == 'songs' and len(datalist) != 0:
+                    self.djstack.extend( datalist[offset:offset+step] )
 
             # 加载打碟歌单
             elif key == ord('z'):
@@ -208,12 +218,23 @@ class Menu:
                 self.offset = 0
                 self.index = 0
 
-            # 从当前列表移除
+            # 从当前列表移除条目
             elif key == ord('r'):
-                if datatype != 'main' and len(datalist) != 0:
+                if datatype != 'main' and datatype != 'help' and len(datalist) != 0:
                     self.datalist.pop(idx)
                     self.index = carousel(offset, min( len(datalist), offset + step) - 1, idx )
 
+            # 移除当前页面所有
+            elif key == ord('R'):
+                if datatype != 'main' and datatype != 'help' and len(datalist) != 0:
+                    for i in range(0, step):
+                        try:
+                            self.datalist.pop(offset)
+                        except:
+                            pass
+                    self.index = self.offset = max(0, offset-step)
+
+            # 回到主菜单
             elif key == ord('m'):
                 if datatype != 'main':
                     self.stack.append( [datatype, title, datalist, offset, index] )
@@ -221,8 +242,9 @@ class Menu:
                     self.title = self.stack[0][1]
                     self.datalist = self.stack[0][2]
                     self.offset = 0
-                    self.index = 0                    
+                    self.index = 0
 
+            # go to github
             elif key == ord('g'):
                 if datatype == 'help':
                     webbrowser.open_new_tab('https://github.com/vellow/NetEase-MusicBox')
@@ -242,6 +264,8 @@ class Menu:
 
     def dispatch_enter(self, idx):
         # The end of stack
+        if len(self.datalist) == 0:
+            return
         netease = self.netease
         datatype = self.datatype
         title = self.title
@@ -251,12 +275,12 @@ class Menu:
         self.stack.append( [datatype, title, datalist, offset, index])
 
         if datatype == 'main':
-            self.choice_channel(idx) 
+            self.choice_channel(idx)
 
         # 该艺术家的热门歌曲
         elif datatype == 'artists':
             artist_id = datalist[idx]['artist_id']
-            songs = netease.artists(artist_id)         
+            songs = netease.artists(artist_id)
             self.datatype = 'songs'
             self.datalist = netease.dig_info(songs, 'songs')
             self.title += ' > ' + datalist[idx]['artists_name']
@@ -305,27 +329,12 @@ class Menu:
             playlists = netease.top_playlists()
             self.datalist = netease.dig_info(playlists, 'playlists')
             self.title += ' > 精选歌单'
-            self.datatype = 'playlists'            
+            self.datatype = 'playlists'
 
-        # 我的歌单
+        # 我的歌单/登录
         elif idx == 4:
-            # 未登录
-            if self.userid is None:
-                # 使用本地存储了账户登录
-                if self.account:
-                    user_info = netease.login(self.account[0], self.account[1])
-                    
-                # 本地没有存储账户，或本地账户失效，则引导录入
-                if self.account == {} or user_info['code'] != 200:
-                    data = self.ui.build_login()
-                    # 取消登录
-                    if data == -1:
-                        return
-                    user_info = data[0]
-                    self.account = data[1]
-
-                self.username = user_info['profile']['nickname']
-                self.userid = user_info['account']['id']
+            if self.login() == -1:
+                return
             # 读取登录之后的用户歌单
             myplaylist = netease.user_playlist( self.userid )
             self.datalist = netease.dig_info(myplaylist, 'playlists')
@@ -361,7 +370,29 @@ class Menu:
             self.datalist = shortcut
 
         self.offset = 0
-        self.index = 0 
+        self.index = 0
+
+    def login(self):
+        # 未登录
+        if self.userid is None:
+            # 使用本地存储了账户登录
+            if self.account:
+                user_info = self.netease.login( self.account[0], self.account[1], self.account[2])
+
+            # 本地没有存储账户，或本地账户失效，则引导录入
+            if self.account == {} or user_info['code'] != 200:
+                data = self.ui.build_login()
+                # 取消登录
+                if data == -1:
+                    return -1
+                user_info = data[0]
+                self.account = data[1]
+
+            try:
+                self.username = user_info['profile']['nickname']
+            except:
+                self.username = user_info['account']['userName']
+            self.userid = user_info['account']['id']        
 
     def search(self):
         ui = self.ui
@@ -391,4 +422,3 @@ class Menu:
             self.datatype = 'playlists'
             self.datalist = ui.build_search('playlists')
             self.title = '精选歌单搜索列表'
-
