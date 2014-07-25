@@ -58,11 +58,9 @@ class Player:
                 onExit()
             return
 
-        mp3_url = str(popenArgs)
         thread = threading.Thread(target=runInThread, args=(onExit, popenArgs))
         thread1 = threading.Thread(target=api.download, args=(popenArgs, None))
-        #with open("/Users/albert/Desktop/temp", "wb") as temp:
-            #temp.write(popenArgs)
+
         thread.start()
         thread1.start()
         # returns immediately after the thread starts
