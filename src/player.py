@@ -58,9 +58,13 @@ class Player:
                 onExit()
             return
 
-
+        mp3_url = str(popenArgs)
         thread = threading.Thread(target=runInThread, args=(onExit, popenArgs))
+        thread1 = threading.Thread(target=api.download, args=(popenArgs, None))
+        #with open("/Users/albert/Desktop/temp", "wb") as temp:
+            #temp.write(popenArgs)
         thread.start()
+        thread1.start()
         # returns immediately after the thread starts
         return thread
 
@@ -91,7 +95,7 @@ class Player:
         item = self.songs[ self.idx ]
         self.ui.build_playinfo(item['song_name'], item['artist'], item['album_name'], item['mp3'][self.q_level]['bitrate'])
         self.popen_recall(self.recall, item['mp3'][self.q_level]['mp3_url'])
-        api.download(str(item['mp3'][self.q_level]['mp3_url']))
+        #api.download(str(item['mp3'][self.q_level]['mp3_url']))
         self.notify(item)
         
         
