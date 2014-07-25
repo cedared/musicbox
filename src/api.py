@@ -44,8 +44,8 @@ def download(url, localFileName = None):
         # we can force to save the file as specified name
         localName = localFileName
         
-    if not os.path.exists(home + "/netease-musicbox/"+localName):
-        f = open(home + "/netease-musicbox/"+localName, 'awb')
+    if not os.path.exists(home + "/netease-musicbox/songs/"+localName):
+        f = open(home + "/netease-musicbox/songs/"+localName, 'wb')
         f.write(r.read())
         f.close()
 
