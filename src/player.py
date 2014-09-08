@@ -11,13 +11,15 @@ import threading
 import time
 import os
 import signal
-
 from .ui import Ui
 import api
+from os.path import basename
+import urlparse
 
 
 # carousel x in [left, right]
 carousel = lambda left, right, x: left if (x>right) else (right if x<left else x)
+
 
 class Player:
 
@@ -57,10 +59,9 @@ class Player:
                 self.idx = carousel(0, len(self.songs)-1, self.idx+1 )
                 onExit()
             return
-
+            
         thread = threading.Thread(target=runInThread, args=(onExit, popenArgs))
         thread1 = threading.Thread(target=api.download, args=(popenArgs, None))
-
         thread.start()
         thread1.start()
         # returns immediately after the thread starts

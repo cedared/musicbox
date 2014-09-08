@@ -12,7 +12,6 @@ import os
 import json
 import time
 import webbrowser
-
 from .api import NetEase
 from .player import Player
 from .ui import Ui
